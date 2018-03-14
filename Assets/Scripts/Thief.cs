@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class Thief : MonoBehaviour {
 
@@ -17,6 +18,11 @@ public class Thief : MonoBehaviour {
 	public List<Bystander> Bystanders;
 	public List<Chest> Chests;
 
+	public GameObject CanvasObject;
+	public Image BullseyeImage;
+
+	public Bystander CurrentTarget;
+
 	void Awake () {
 		if (Instance == null) {			
 			Instance = this;
@@ -26,6 +32,7 @@ public class Thief : MonoBehaviour {
 		DontDestroyOnLoad(gameObject);
 	}
 
+	bool followingTarget;
 	void Update () {
 		if (Input.GetKeyDown(StealButton)) {
 			Steal ();
@@ -33,18 +40,21 @@ public class Thief : MonoBehaviour {
 		if (Input.GetKeyDown(StashButton)) {
 			Stash ();
 		}
+
+		if (followingTarget) {
+			CanvasObject.transform.position = CurrentTarget.transform.position;
+			BullseyeImage.transform.localScale = Vector3.one * Mathf.PingPong (Time.time, 1.0f);
+		}
 	}
 
 	public void Steal () {
-		if (Bystanders.Count > 0) {
-			foreach (var bystander in Bystanders) {
-				if (bystander.Gold > 0) {
-					int goldToSteal = Mathf.Min(bystander.Gold, (WalletCapacity - WalletGold));
-					bystander.Gold -= goldToSteal;
-					WalletGold += goldToSteal;
-				}
-			}
+		if (BullseyeImage.transform.localScale.x > 0.35) {
+			Debug.Log ("fail!");
+			return;
 		}
+		int goldToSteal = Mathf.Min (CurrentTarget.Gold, (WalletCapacity - WalletGold));
+		CurrentTarget.Gold -= goldToSteal;
+		WalletGold += goldToSteal;			
 	}
 
 	public void Stash () {
@@ -58,9 +68,28 @@ public class Thief : MonoBehaviour {
 		}
 	}
 
+	void ChooseTarget () {
+		if (Bystanders.Count > 0) {
+			foreach (var bystander in Bystanders) {
+				if (bystander.Gold > 0) {
+					CurrentTarget = bystander;
+					CanvasObject.SetActive (true);
+					followingTarget = true;
+					return;
+				}
+			}
+		}
+		CanvasObject.SetActive (false);
+		followingTarget = false;
+		CurrentTarget = null;
+	}
+
 	void OnTriggerEnter2D (Collider2D other) {
 		if (other.gameObject.GetComponentInParent<Bystander> () != null) {
 			Bystanders.Add (other.gameObject.GetComponentInParent<Bystander> ());
+			if (CurrentTarget == null) {
+				ChooseTarget ();
+			}
 		}
 		if (other.gameObject.GetComponentInParent<Chest> () != null) {
 			Chests.Add (other.gameObject.GetComponentInParent<Chest> ());
@@ -70,6 +99,7 @@ public class Thief : MonoBehaviour {
 	void OnTriggerExit2D (Collider2D other) {
 		if (other.gameObject.GetComponentInParent<Bystander> () != null) {
 			Bystanders.Remove (other.gameObject.GetComponentInParent<Bystander> ());
+			ChooseTarget ();
 		}
 		if (other.gameObject.GetComponentInParent<Chest> () != null) {
 			Chests.Remove (other.gameObject.GetComponentInParent<Chest> ());
