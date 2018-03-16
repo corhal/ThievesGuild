@@ -15,7 +15,8 @@ public class Thief : MonoBehaviour {
 	public KeyCode StealButton;
 	public KeyCode StashButton;
 
-	public List<Bystander> Bystanders;
+	public List<Bystander> BystandersWhoISee;
+	public List<Bystander> BystandersWhoSeeMee;
 	public List<Chest> Chests;
 
 	public GameObject CanvasObject;
@@ -23,13 +24,29 @@ public class Thief : MonoBehaviour {
 
 	public Bystander CurrentTarget;
 
+	public delegate void ThiefSpottedEventHandler (Bystander bystander, Thief thief);
+	public static event ThiefSpottedEventHandler OnThiefSteals;
+
 	void Awake () {
 		if (Instance == null) {			
 			Instance = this;
 		} else if (Instance != this) {
 			Destroy (gameObject);  
 		}
+		Bystander.OnThiefSpotted += Bystander_OnThiefSpotted;
+		Bystander.OnThiefUnspotted += Bystander_OnThiefUnspotted;
 		DontDestroyOnLoad(gameObject);
+	}
+
+	void Bystander_OnThiefUnspotted (Bystander bystander, Thief thief) {
+		ChooseTarget ();
+	}
+
+	void Bystander_OnThiefSpotted (Bystander bystander, Thief thief) {
+		if (CurrentTarget == bystander) {
+			CurrentTarget = null;
+			ChooseTarget ();
+		}
 	}
 
 	bool followingTarget;
@@ -44,7 +61,8 @@ public class Thief : MonoBehaviour {
 
 		if (followingTarget && CurrentTarget.Gold > 0) {
 			CanvasObject.transform.position = CurrentTarget.transform.position;
-			BullseyeImage.transform.localScale = Vector3.one * Mathf.PingPong (Time.time, 1.0f);
+
+			BullseyeImage.transform.localScale = Vector3.one * Mathf.PingPong (Time.time * CurrentTarget.Attention / 100.0f, 1.0f);
 
 			if (Input.GetKeyDown(StealButton)) {
 				Steal ();
@@ -59,9 +77,12 @@ public class Thief : MonoBehaviour {
 		}
 		int goldToSteal = Mathf.Min (CurrentTarget.Gold, (WalletCapacity - WalletGold));
 		CurrentTarget.Gold -= goldToSteal;
-		WalletGold += goldToSteal;		
+		WalletGold += goldToSteal;	
+		OnThiefSteals (CurrentTarget, this);
 		if (CurrentTarget.Gold <= 0) {
-			Bystanders.Remove (CurrentTarget);
+			CurrentTarget.WalletObject.SetActive (false);
+			BystandersWhoISee.Remove (CurrentTarget);
+			CurrentTarget = null;
 			ChooseTarget ();
 		}
 	}
@@ -89,9 +110,9 @@ public class Thief : MonoBehaviour {
 	}
 
 	void ChooseTarget () {
-		if (Bystanders.Count > 0) {
-			foreach (var bystander in Bystanders) {
-				if (bystander.Gold > 0) {
+		if (BystandersWhoISee.Count > 0) {
+			foreach (var bystander in BystandersWhoISee) {
+				if (bystander.Gold > 0 && !bystander.ThievesInVision.Contains (this)) {
 					CurrentTarget = bystander;
 					CanvasObject.SetActive (true);
 					followingTarget = true;
@@ -105,8 +126,11 @@ public class Thief : MonoBehaviour {
 	}
 
 	void OnTriggerEnter2D (Collider2D other) {
-		if (other.gameObject.GetComponentInParent<Bystander> () != null && other.gameObject.GetComponentInParent<Bystander> ().Gold > 0) {
-			Bystanders.Add (other.gameObject.GetComponentInParent<Bystander> ());
+		if (other.gameObject.GetComponentInParent<Bystander> () != null && !BystandersWhoISee.Contains (other.gameObject.GetComponentInParent<Bystander> ()) && other.gameObject.GetComponentInParent<Bystander> ().Gold > 0) {
+			if (other.tag == "vision") {
+				return;
+			}
+			BystandersWhoISee.Add (other.gameObject.GetComponentInParent<Bystander> ());
 			if (CurrentTarget == null) {
 				ChooseTarget ();
 			}
@@ -118,7 +142,10 @@ public class Thief : MonoBehaviour {
 
 	void OnTriggerExit2D (Collider2D other) {
 		if (other.gameObject.GetComponentInParent<Bystander> () != null) {
-			Bystanders.Remove (other.gameObject.GetComponentInParent<Bystander> ());
+			if (other.tag == "vision") {
+				return;
+			}
+			BystandersWhoISee.Remove (other.gameObject.GetComponentInParent<Bystander> ());
 			ChooseTarget ();
 		}
 		if (other.gameObject.GetComponentInParent<Chest> () != null) {
