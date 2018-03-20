@@ -17,6 +17,7 @@ public class Bystander : MonoBehaviour {
 	public List <Thief> ThievesInVision;
 
 	public GameObject WalletObject;
+	public GameObject AttentionMarker;
 
 	public delegate void ThiefSpottedEventHandler (Bystander bystander, Thief thief);
 	public static event ThiefSpottedEventHandler OnThiefSpotted;
@@ -30,20 +31,26 @@ public class Bystander : MonoBehaviour {
 	}
 
 	void Thief_OnThiefSteals (Bystander bystander, Thief thief) {
-		if (bystander != this && ThievesInVision.Contains (thief)) {
-			int randomRoll = Random.Range (0, 101);
-			if (randomRoll <= Attention) {
-				Debug.Log ("Thief! Thief!");
+		RaycastHit2D hit = Physics2D.Raycast (transform.position, bystander.transform.position, 10.0f/*, LayerMask.GetMask ("Ignore Raycast")*/);
+		Debug.Log (hit.collider);
+		if (hit.collider != null && hit.collider.gameObject.GetComponent<Thief> () != null) {
+			if (bystander != this && ThievesInVision.Contains (thief)) {
+				if (Attention > 50) {
+					Debug.Log ("Thief! Thief!");
+				}
 			}
 		}
 	}
 
 	void Start () {
-		randomDelay = Random.Range (0.0f, 3.0f);
+		randomDelay = Random.Range (1000.0f, 2000.0f);
 		destination = RandomPointNearby ();
-		transform.up = destination - transform.position;
+		//transform.up = destination - transform.position;
 		Gold = Random.Range (10, 21);
 		Attention = Random.Range (1, 101);
+		if (Attention > 50) {
+			AttentionMarker.SetActive (true);
+		}
 	}
 
 	void Update () {
@@ -56,8 +63,8 @@ public class Bystander : MonoBehaviour {
 		}
 
 		if (Vector2.Distance(transform.position, destination) > 0.01f) {
-			Vector3 movement = destination - transform.position;
-			rigidBody.velocity = movement * 0.5f;
+			//Vector3 movement = destination - transform.position;
+			//rigidBody.velocity = movement * 0.5f;
 		}
 	}
 

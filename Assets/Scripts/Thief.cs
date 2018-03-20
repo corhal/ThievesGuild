@@ -49,6 +49,7 @@ public class Thief : MonoBehaviour {
 		}
 	}
 
+	float t;
 	bool followingTarget;
 	void Update () {
 		if (Input.GetKeyDown(StashButton)) {
@@ -61,8 +62,8 @@ public class Thief : MonoBehaviour {
 
 		if (followingTarget && CurrentTarget.Gold > 0) {
 			CanvasObject.transform.position = CurrentTarget.transform.position;
-
-			BullseyeImage.transform.localScale = Vector3.one * Mathf.PingPong (Time.time * CurrentTarget.Attention / 100.0f, 1.0f);
+			t += 0.5f * Time.deltaTime;
+			BullseyeImage.transform.localScale = Vector3.one * Mathf.Lerp (1.0f, 0.2f, t);
 
 			if (Input.GetKeyDown(StealButton)) {
 				Steal ();
@@ -116,6 +117,8 @@ public class Thief : MonoBehaviour {
 					CurrentTarget = bystander;
 					CanvasObject.SetActive (true);
 					followingTarget = true;
+					BullseyeImage.transform.localScale = Vector3.one;
+					t = 0.0f;
 					return;
 				}
 			}
@@ -146,7 +149,9 @@ public class Thief : MonoBehaviour {
 				return;
 			}
 			BystandersWhoISee.Remove (other.gameObject.GetComponentInParent<Bystander> ());
-			ChooseTarget ();
+			if (CurrentTarget == other.gameObject.GetComponentInParent<Bystander> ()) {
+				ChooseTarget ();
+			}
 		}
 		if (other.gameObject.GetComponentInParent<Chest> () != null) {
 			Chests.Remove (other.gameObject.GetComponentInParent<Chest> ());
